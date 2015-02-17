@@ -14,32 +14,34 @@ row_lut_hi = $4100	; screen row lookup table, hi byte
 
 		ICL "definitions.asm"
 		OPT R+						; enable macro code optimization
+
 ;
 ; Lookup tables constructed as in http://www.atariarchives.org/agagd/chapter8.php
 ;
-.MACRO init_luts
-		ldy #0						; lut offset
-		lda sm_ptr					; load screen memory lo byte
-		ldx sm_ptr+1
-		
+.PROC init_luts
+	ldy #0						; lut offset
+	lda sm_ptr					; load screen memory lo byte
+	ldx sm_ptr+1
+
 store_to_lut
-		sta maze_alg.row_lut_lo,y	; Store y coordinate lookup table lo byte
-		pha							; Push offset to stack
-		txa							; X reg contains the hi byte 
-		sta maze_alg.row_lut_hi,y
-		pla
-		
-		iny
-		cpy #num_rows				; Have we done all 24 rows already
-		beq lut_done
-		clc
-		adc #bytes_per_row			; Add row width with carry
-		bcc store_to_lut				
-		inx							; Carry set, increase hi byte
-		jmp store_to_lut
-		
+	sta maze_alg.row_lut_lo,y	; Store y coordinate lookup table lo byte
+	pha							; Push offset to stack
+	txa							; X reg contains the hi byte
+	sta maze_alg.row_lut_hi,y
+	pla
+
+	iny
+	cpy #num_rows				; Have we done all 24 rows already
+	beq lut_done
+	clc
+	adc #bytes_per_row			; Add row width with carry
+	bcc store_to_lut
+	inx							; Carry set, increase hi byte
+	jmp store_to_lut
+
 lut_done
-.ENDM
+	rts
+.ENDP
 
 ;
 ; Initialize maze algorithm
