@@ -33,7 +33,7 @@ maze_ready		= $cf	; is maze ready; 0 - false, otherwise true
 		mwa position+2 position+4	; to 3 consecutive pages for simpler clearing loop 
 		inc position+5
 		
-		lda #0
+		lda #walled_in
      	ldy #0							; Offset
 clr_loop	
 		sta (position),y

@@ -58,8 +58,6 @@ lut_done
 	mod rng, #num_cols
 	sta coord_x
 
-	write_cell #walled_in
-	
 	rts	
 .ENDP
 
@@ -283,7 +281,8 @@ up							; check up for neighbours
 	setup_position_from_y_coord check_position, check_y
 	ldy check_x
 	lda (check_position),y
-	bne down				; if != 0, cell is occupied already
+	cmp #walled_in
+	bne down				; if != F, cell is occupied already
 	txa
 	ora #wall_up
 	tax
@@ -297,6 +296,7 @@ down
 	setup_position_from_y_coord check_position, check_y
 	ldy check_x
 	lda (check_position),y
+	cmp #walled_in
 	bne left
 	txa
 	ora #wall_down
@@ -311,6 +311,7 @@ left
 	setup_position_from_y_Coord check_position, check_y
 	ldy check_x
 	lda (check_position),y
+	cmp #walled_in
 	bne right
 	txa
 	ora #wall_left
@@ -325,6 +326,7 @@ right
 	setup_position_from_y_coord check_position, check_y
 	ldy check_x
 	lda (check_position),y
+	cmp #walled_in
 	bne done
 	txa
 	ora #wall_right
