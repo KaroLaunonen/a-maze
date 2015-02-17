@@ -70,12 +70,16 @@ lut_done
 ;
 wall_mask	.BY %00000001
 
-.PROC step	
+.PROC step
+	.ZPVAR wild_hunt .byte	; did we just hunt
+
+	mva #0 wild_hunt
 	check_neighbours
 	txa
 	bne carve_new_cell
 	
 	; Start hunt from upper-left corner
+	mva #1 wild_hunt
 	lda #0
 	sta coord_x
 	sta coord_y
@@ -128,54 +132,36 @@ carve_new_cell
 	jmp carve_new_cell		; that was bad random number ;), let's try again
 
 left
-	setup_position_from_y_coord position, coord_y
-	ldy coord_x
-	lda (position),y
-	and #[$F - wall_left]
-	sta (position),y
+	ldx #wall_left
+	connect_cell
+	lda wild_hunt
+	bne done				; if we came here from hunt, don't update coords
 	dec coord_x
-	dey
-	lda #[$F - wall_right]
-	sta (position),y
-	jmp done
+	rts
 	
 right
-	setup_position_from_y_coord position, coord_y
-	ldy coord_x
-	lda (position),y
-	and #[$F - wall_right]
-	sta (position),y
+	ldx #wall_right
+	connect_cell
+	lda wild_hunt
+	bne done
 	inc coord_x
-	iny
-	lda #[$F - wall_left]
-	sta (position),y
-	jmp done
+	rts
 
 up
-	setup_position_from_y_coord position, coord_y
-	ldy coord_x
-	lda (position),y
-	and #[$F - wall_up]
-	sta (position),y
+	ldx #wall_up
+	connect_cell
+	lda wild_hunt
+	bne done
 	dec coord_y
-	setup_position_from_y_coord position, coord_y
-	ldy coord_x
-	lda #[$F - wall_down]
-	sta (position),y
-	jmp done
+	rts
 	
 down
-	setup_position_from_y_coord position, coord_y
-	ldy coord_x
-	lda (position),y
-	and #[$F - wall_down]
-	sta (position),y
+	ldx #wall_down
+	connect_cell
+	lda wild_hunt
+	bne done
 	inc coord_y
-	setup_position_from_y_coord position, coord_y
-	ldy coord_x
-	lda #[$F - wall_up]
-	sta (position),y
-	
+		
 done
 	rts
 .ENDP
@@ -213,6 +199,66 @@ loop
 	mva row_lut_lo,y :pos_ptr
 	mva row_lut_hi,y :pos_ptr+1
 .ENDM
+
+;
+; Removes walls between current cell and cell in direction in register x.
+; Procedure assumes direction has already been cbecked to be valid.
+;
+.PROC connect_cell
+	.ZPVAR tmp_y .byte
+
+	setup_position_from_y_coord position, coord_y
+	ldy coord_x
+	lda (position),y
+	
+left
+	cpx #wall_left
+	bne right
+	and #[$F - wall_left]
+	sta (position),y
+	dey
+	lda (position),y
+	and #[$F - wall_right]
+	sta (position),y
+	rts
+	
+right
+	cpx #wall_right
+	bne up
+	and #[$F - wall_right]
+	sta (position),y
+	iny
+	lda (position),y
+	and #[$F - wall_left]
+	sta (position),y
+	rts
+	
+up
+	cpx #wall_up
+	bne down
+	and #[$F - wall_up]
+	sta (position),y
+	mva coord_y tmp_y
+	dec tmp_y
+	setup_position_from_y_coord position, tmp_y
+	ldy coord_x
+	lda (position),y
+	and #[$F - wall_down]
+	sta (position),y
+	rts	
+
+down
+	and #[$F - wall_down]
+	sta (position),y
+	mva coord_y tmp_y
+	inc tmp_y
+	setup_position_from_y_coord position, tmp_y
+	ldy coord_x
+	lda (position),y
+	and #[$F - wall_up]
+	sta (position),y
+	rts
+.ENDP
 
 ;
 ; Check neighbour cells of current cell (coord_x, coord_y).
