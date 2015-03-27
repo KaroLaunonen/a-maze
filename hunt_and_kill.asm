@@ -96,7 +96,7 @@ next_cell
 	bne hunt
 	
 	ldy coord_y
-	cmp #[num_rows - 1]
+	cpy #[num_rows - 1]
 	beq maze_done
 	inc coord_y
 	iny
@@ -136,8 +136,8 @@ is_suitable
 	sta wild_hunt			; loan wild_hunt location
 	cpx wild_hunt
 	beq next_cell
-	txa
 
+	txa
 	connect_to_existing_corridor
 	rts	
 
@@ -334,12 +334,12 @@ up							; check up for neighbours
 	txa
 	ora #wall_up
 	tax
-	lda coord_y
 	
 down
+	lda coord_y
 	cmp #[num_rows - 1]
 	beq left
-	ldy coord_y
+	tay
 	iny
 	setup_position_from_y_register check_position
 	ldy coord_x
