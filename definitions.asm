@@ -3,6 +3,13 @@
 .IFNDEF DEFINITIONS
 .DEF DEFINITIONS
 
+ICCOM 			= $0342
+CIOV  			= $E456
+ICBAL 			= $0344
+ICBAH			= $0345
+ICAX1 			= $034A
+ICAX2 			= $034B
+
 wall_left  		= %0001
 wall_right 		= %0010
 wall_up			= %0100
