@@ -109,35 +109,33 @@ maze_done
 	lda #1
 	sta maze_ready
 	rts
-	
+
 empty_cell					; we're in empty cell, are there neighbours	
-	check_neighbours
-	lda #$F
+	check_neighbours		; now 0 bit means valid direction and 1 invalid
+	txa
 	ldy coord_x
 	bne check_right_border
-	and #[wall_right + wall_up + wall_down]		; we're on left border, don't count left side in
+	ora #wall_left			; set bits in invalid directions
 
 check_right_border
 	cpy #[num_cols - 1]
 	bne check_top_border
-	and #[wall_left + wall_up + wall_down]
+	ora #wall_right
 
 check_top_border
 	ldy coord_y
 	bne check_bottom_border
-	and #[wall_left + wall_right + wall_down]
+	ora #wall_up
 
 check_bottom_border
 	cpy #[num_rows - 1]
 	bne is_suitable
-	and #[wall_left + wall_right + wall_up]
+	ora #wall_down
 
 is_suitable
-	sta wild_hunt			; loan wild_hunt location
-	cpx wild_hunt
+	cmp #$F			; if no valid direction, try next cell
 	beq next_cell
 
-	txa
 	connect_to_existing_corridor
 	rts	
 
