@@ -14,32 +14,34 @@ row_lut_hi = $4100	; screen row lookup table, hi byte
 
 		ICL "definitions.asm"
 		OPT R+						; enable macro code optimization
+
 ;
 ; Lookup tables constructed as in http://www.atariarchives.org/agagd/chapter8.php
 ;
-.MACRO init_luts
-		ldy #0						; lut offset
-		lda sm_ptr					; load screen memory lo byte
-		ldx sm_ptr+1
-		
+.PROC init_luts
+	ldy #0						; lut offset
+	lda sm_ptr					; load screen memory lo byte
+	ldx sm_ptr+1
+
 store_to_lut
-		sta maze_alg.row_lut_lo,y	; Store y coordinate lookup table lo byte
-		pha							; Push offset to stack
-		txa							; X reg contains the hi byte 
-		sta maze_alg.row_lut_hi,y
-		pla
-		
-		iny
-		cpy #num_rows				; Have we done all 24 rows already
-		beq lut_done
-		clc
-		adc #bytes_per_row			; Add row width with carry
-		bcc store_to_lut				
-		inx							; Carry set, increase hi byte
-		jmp store_to_lut
-		
+	sta maze_alg.row_lut_lo,y	; Store y coordinate lookup table lo byte
+	pha							; Push offset to stack
+	txa							; X reg contains the hi byte
+	sta maze_alg.row_lut_hi,y
+	pla
+
+	iny
+	cpy #num_rows				; Have we done all 24 rows already
+	beq lut_done
+	clc
+	adc #bytes_per_row			; Add row width with carry
+	bcc store_to_lut
+	inx							; Carry set, increase hi byte
+	jmp store_to_lut
+
 lut_done
-.ENDM
+	rts
+.ENDP
 
 ;
 ; Initialize maze algorithm
@@ -58,8 +60,6 @@ lut_done
 	mod rng, #num_cols
 	sta coord_x
 
-	write_cell #walled_in
-	
 	rts	
 .ENDP
 
@@ -68,8 +68,6 @@ lut_done
 ; Either continues from current cell, or scans
 ; for new cell to continue.
 ;
-wall_mask	.BY %00000001
-
 .PROC step
 	.ZPVAR wild_hunt .byte	; did we just hunt
 
@@ -88,19 +86,23 @@ wall_mask	.BY %00000001
 	
 hunt
 	lda (position),y
+	cmp #walled_in
 	beq empty_cell			; cell is empty, check neighbours
 
 next_cell
-	iny
-	cpy #num_cols
+	inc coord_x
+	ldy coord_x
+	cpy #[num_cols - 1]
 	bne hunt
 	
-	lda coord_y
-	cmp #[num_rows - 1]
+	ldy coord_y
+	cpy #[num_rows - 1]
 	beq maze_done
 	inc coord_y
-	setup_position_from_y_coord position, coord_y
+	iny
+	setup_position_from_y_register position
 	ldy #0
+	sty coord_x
 	jmp hunt
 
 maze_done
@@ -110,9 +112,35 @@ maze_done
 	
 empty_cell					; we're in empty cell, are there neighbours	
 	check_neighbours
-	cpx #$F					; all free, not good
+	lda #$F
+	ldy coord_x
+	bne check_right_border
+	and #[wall_right + wall_up + wall_down]		; we're on left border, don't count left side in
+
+check_right_border
+	cpy #[num_cols - 1]
+	bne check_top_border
+	and #[wall_left + wall_up + wall_down]
+
+check_top_border
+	ldy coord_y
+	bne check_bottom_border
+	and #[wall_left + wall_right + wall_down]
+
+check_bottom_border
+	cpy #[num_rows - 1]
+	bne is_suitable
+	and #[wall_left + wall_right + wall_up]
+
+is_suitable
+	sta wild_hunt			; loan wild_hunt location
+	cpx wild_hunt
 	beq next_cell
-	
+
+	txa
+	connect_to_existing_corridor
+	rts	
+
 carve_new_cell
 	and rng					; bitwise and the neighbours status with rng
 
@@ -126,7 +154,7 @@ carve_new_cell
 	bne up
 	lsr
 	bit wall_mask
-	bne	 down
+	bne down
 	
 	txa
 	jmp carve_new_cell		; that was bad random number ;), let's try again
@@ -166,6 +194,36 @@ done
 	rts
 .ENDP
 
+.PROC connect_to_existing_corridor
+	bit wall_mask
+	bne check_right
+	ldx #wall_left
+	connect_cell
+	rts
+
+check_right
+	lsr
+	bit wall_mask
+	bne check_up
+	ldx #wall_right
+	connect_cell
+	rts
+
+check_up
+	lsr
+	bit wall_mask
+	bne check_down
+	ldx #wall_up
+	connect_cell
+	rts
+
+check_down
+	ldx #wall_down
+	connect_cell
+	rts
+
+.ENDP
+
 ;
 ; modulo
 ; https://gist.github.com/hausdorff/5993556
@@ -181,21 +239,15 @@ loop
 .ENDM
 
 ;
-; Write walls nybble to current cell
-;
-.MACRO write_cell walls
-	setup_position_from_y_coord position, coord_y
-	
-	ldy coord_x
-	lda :walls
-	sta (position),y
-.ENDM
-
-;
 ; Setup screen memory pointer pos_ptr according to coordinate y
 ;
 .MACRO setup_position_from_y_coord pos_ptr, y
 	ldy :y
+	mva row_lut_lo,y :pos_ptr
+	mva row_lut_hi,y :pos_ptr+1
+.ENDM
+
+.MACRO setup_position_from_y_register pos_ptr
 	mva row_lut_lo,y :pos_ptr
 	mva row_lut_hi,y :pos_ptr+1
 .ENDM
@@ -205,8 +257,6 @@ loop
 ; Procedure assumes direction has already been cbecked to be valid.
 ;
 .PROC connect_cell
-	.ZPVAR tmp_y .byte
-
 	setup_position_from_y_coord position, coord_y
 	ldy coord_x
 	lda (position),y
@@ -238,9 +288,9 @@ up
 	bne down
 	and #[$F - wall_up]
 	sta (position),y
-	mva coord_y tmp_y
-	dec tmp_y
-	setup_position_from_y_coord position, tmp_y
+	ldy coord_y
+	dey
+	setup_position_from_y_register position
 	ldy coord_x
 	lda (position),y
 	and #[$F - wall_down]
@@ -250,9 +300,9 @@ up
 down
 	and #[$F - wall_down]
 	sta (position),y
-	mva coord_y tmp_y
-	inc tmp_y
-	setup_position_from_y_coord position, tmp_y
+	ldy coord_y
+	iny
+	setup_position_from_y_register position
 	ldy coord_x
 	lda (position),y
 	and #[$F - wall_up]
@@ -267,50 +317,48 @@ down
 ; 
 .PROC check_neighbours
 	.ZPVAR check_position .WORD
-	.ZPVAR check_x check_y .BYTE
 	
-	mva coord_x check_x		; copy current cell coords
-	mva coord_y check_y
-
 	ldx	#0					; x contains the neighbour bits, 1 - free, 0 - occupied
 
 	lda	coord_y
 	beq down				; if coord_y == 0, skip up
 
 up							; check up for neighbours
-	sta check_y
-	dec check_y
-	setup_position_from_y_coord check_position, check_y
-	ldy check_x
+	tay
+	dey
+	setup_position_from_y_register check_position
+	ldy coord_x
 	lda (check_position),y
-	bne down				; if != 0, cell is occupied already
+	cmp #walled_in
+	bne down				; if != F, cell is occupied already
 	txa
 	ora #wall_up
 	tax
-	lda coord_y
 	
 down
+	lda coord_y
 	cmp #[num_rows - 1]
 	beq left
-	sta check_y
-	inc check_y
-	setup_position_from_y_coord check_position, check_y
-	ldy check_x
+	tay
+	iny
+	setup_position_from_y_register check_position
+	ldy coord_x
 	lda (check_position),y
+	cmp #walled_in
 	bne left
 	txa
 	ora #wall_down
 	tax
 	
 left
-	mva coord_y check_y
+	ldy coord_y
+	setup_position_from_y_register check_position
 	lda coord_x
 	beq right
-	sta check_x
-	dec check_x
-	setup_position_from_y_Coord check_position, check_y
-	ldy check_x
+	tay
+	dey
 	lda (check_position),y
+	cmp #walled_in
 	bne right
 	txa
 	ora #wall_left
@@ -320,11 +368,10 @@ right
 	lda coord_x
 	cmp #[num_cols - 1]
 	beq done
-	sta check_x
-	inc check_x
-	setup_position_from_y_coord check_position, check_y
-	ldy check_x
+	ldy coord_x
+	iny
 	lda (check_position),y
+	cmp #walled_in
 	bne done
 	txa
 	ora #wall_right
