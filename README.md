@@ -11,8 +11,12 @@ Later I wanted to add some game elements in it. Controlling a character with joy
 finding and simple opponent AI. Unfortunately I have not had time to implement these.
 
 ## How
-The program was developed using Peter Dell's WUDSN IDE https://github.com/peterdell/wudsn-ide
-ASM variant used is MAD-Assembler: http://mads.atari8.info/mads_eng.html
+The program was developed using Peter Dell's WUDSN IDE https://github.com/peterdell/wudsn-ide  
+ASM variant used is MAD-Assembler: http://mads.atari8.info/
+
+## Build
+Build obx object file using:  
+`mads maze.asm`
 
 ##
 
