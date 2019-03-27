@@ -10,6 +10,8 @@ that started my interest in computers and programming, and later led me into pro
 Later I wanted to add some game elements in it. Controlling a character with joystick, and implementing some path
 finding and simple opponent AI. Unfortunately I have not had time to implement these.
 
+**Note** There are unfinished code and source files that are waiting for implementation.
+
 ## How
 The program was developed using Peter Dell's WUDSN IDE https://github.com/peterdell/wudsn-ide  
 ASM variant used is MAD-Assembler: http://mads.atari8.info/
