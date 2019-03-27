@@ -9,39 +9,10 @@
 
 rng		= $d20a		; Random number generator
 
-row_lut_lo = $4000	; screen row lookup table, lo byte
-row_lut_hi = $4100	; screen row lookup table, hi byte
 
-		ICL "definitions.asm"
+		ICL "definitions"
+		ICL "general_utils"
 		OPT R+						; enable macro code optimization
-
-;
-; Lookup tables constructed as in http://www.atariarchives.org/agagd/chapter8.php
-;
-.PROC init_luts
-	ldy #0						; lut offset
-	lda sm_ptr					; load screen memory lo byte
-	ldx sm_ptr+1
-
-store_to_lut
-	sta maze_alg.row_lut_lo,y	; Store y coordinate lookup table lo byte
-	pha							; Push offset to stack
-	txa							; X reg contains the hi byte
-	sta maze_alg.row_lut_hi,y
-	pla
-
-	iny
-	cpy #num_rows				; Have we done all 24 rows already
-	beq lut_done
-	clc
-	adc #bytes_per_row			; Add row width with carry
-	bcc store_to_lut
-	inx							; Carry set, increase hi byte
-	jmp store_to_lut
-
-lut_done
-	rts
-.ENDP
 
 ;
 ; Initialize maze algorithm
@@ -50,7 +21,7 @@ lut_done
 ; - random starting cell
 ;
 .PROC init
-	init_luts
+	coord_utils.init_luts
 
 	lda #0								; Reset maze ready flag
 	sta maze_ready
@@ -81,7 +52,7 @@ lut_done
 	lda #0
 	sta coord_x
 	sta coord_y
-	setup_position_from_y_coord position, coord_y
+	coord_utils.setup_position_from_y_coord position, coord_y
 	ldy #0
 	
 hunt
@@ -100,7 +71,7 @@ next_cell
 	beq maze_done
 	inc coord_y
 	iny
-	setup_position_from_y_register position
+	coord_utils.setup_position_from_y_register position
 	ldy #0
 	sty coord_x
 	jmp hunt
@@ -223,39 +194,11 @@ check_down
 .ENDP
 
 ;
-; modulo
-; https://gist.github.com/hausdorff/5993556
-;
-.MACRO mod val1,val2
-	lda	:val1
-	sec
-	
-loop
-	sbc :val2
-	bcs loop
-	adc :val2
-.ENDM
-
-;
-; Setup screen memory pointer pos_ptr according to coordinate y
-;
-.MACRO setup_position_from_y_coord pos_ptr, y
-	ldy :y
-	mva row_lut_lo,y :pos_ptr
-	mva row_lut_hi,y :pos_ptr+1
-.ENDM
-
-.MACRO setup_position_from_y_register pos_ptr
-	mva row_lut_lo,y :pos_ptr
-	mva row_lut_hi,y :pos_ptr+1
-.ENDM
-
-;
 ; Removes walls between current cell and cell in direction in register x.
-; Procedure assumes direction has already been cbecked to be valid.
+; Procedure assumes direction has already been checked to be valid.
 ;
 .PROC connect_cell
-	setup_position_from_y_coord position, coord_y
+	coord_utils.setup_position_from_y_coord position, coord_y
 	ldy coord_x
 	lda (position),y
 	
@@ -288,7 +231,7 @@ up
 	sta (position),y
 	ldy coord_y
 	dey
-	setup_position_from_y_register position
+	coord_utils.setup_position_from_y_register position
 	ldy coord_x
 	lda (position),y
 	and #[$F - wall_down]
@@ -300,7 +243,7 @@ down
 	sta (position),y
 	ldy coord_y
 	iny
-	setup_position_from_y_register position
+	coord_utils.setup_position_from_y_register position
 	ldy coord_x
 	lda (position),y
 	and #[$F - wall_up]
@@ -324,7 +267,7 @@ down
 up							; check up for neighbours
 	tay
 	dey
-	setup_position_from_y_register check_position
+	coord_utils.setup_position_from_y_register check_position
 	ldy coord_x
 	lda (check_position),y
 	cmp #walled_in
@@ -339,7 +282,7 @@ down
 	beq left
 	tay
 	iny
-	setup_position_from_y_register check_position
+	coord_utils.setup_position_from_y_register check_position
 	ldy coord_x
 	lda (check_position),y
 	cmp #walled_in
@@ -350,7 +293,7 @@ down
 	
 left
 	ldy coord_y
-	setup_position_from_y_register check_position
+	coord_utils.setup_position_from_y_register check_position
 	lda coord_x
 	beq right
 	tay

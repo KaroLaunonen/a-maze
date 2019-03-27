@@ -1,4 +1,6 @@
+;
 ; Player control routines
+;
 
 .LOCAL player_control
 
@@ -9,14 +11,30 @@ joystick_down	= %0010
 joystick_left	= %0100
 joystick_right	= %1000
 
-min_y			= 30
-max_y			= 160
+min_x			= $30
+max_x			= $D0
+min_y			= $1E
+max_y			= $A0
+
+.PROC read_controls
+;	coord_utils.map_from_screen_to_grid_coords
+	
+;	lda #"*"
+;	sta (position),y
+
+	move_player
+	
+	rts	
+.ENDP
 
 .PROC move_player
 up
 	lda #joystick_up
 	bit joystick_0
 	bne down
+	lda #min_y
+	cmp p0_y
+	beq left
 	move_up
 	jmp left
 
@@ -24,14 +42,20 @@ down
 	lda #joystick_down
 	bit joystick_0
 	bne left
+	lda #max_y
+	cmp p0_y
+	beq left
 	move_down
 	
 left
 	lda #joystick_left
 	bit joystick_0
 	bne right
-	dec player_x
-	lda player_x
+	lda #min_x
+	cmp p0_x
+	beq done
+	dec p0_x
+	lda p0_x
 	sta p0_hpos
 	jmp done
 
@@ -39,8 +63,11 @@ right
 	lda #joystick_right
 	bit joystick_0
 	bne done
-	inc player_x
-	lda player_x
+	lda #max_x
+	cmp p0_x
+	beq done
+	inc p0_x
+	lda p0_x
 	sta p0_hpos
 
 done
@@ -48,11 +75,8 @@ done
 .ENDP
 
 .PROC move_up
-	lda player_y
-	cmp min_y
-	beq done
-
-	dec player_y
+	lda p0_y
+	dec p0_y
 	sta p0_addr
 	ldx #8
 	
@@ -70,11 +94,11 @@ done
 .ENDP
 
 .PROC move_down
-	lda player_y
+	lda p0_y
 	cmp max_y
 	beq done
 	
-	lda player_y
+	lda p0_y
 	clc
 	adc #8
 	sta p0_addr
@@ -85,11 +109,11 @@ move_loop
 	lda (p0_addr),y
 	iny
 	sta (p0_addr),y
-	lda player_y
+	lda p0_y
 	cmp p0_addr
 	bne move_loop
 
-	inc player_y
+	inc p0_y
 	
 done	
 	rts
